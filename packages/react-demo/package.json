@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "macro": "living-image-macro ./src --generate"
+    "macro": "bun run ../living-image/src/macro.ts ./src --generate"
   },
   "dependencies": {
     "react": "^19.2.0",

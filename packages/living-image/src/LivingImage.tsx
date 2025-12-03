@@ -1,8 +1,9 @@
-import React from 'react';
-import { getImageSrc } from './utils';
-import type { RecraftStyleOptions } from './config';
+import React, { useState } from "react";
+import { getImageSrc, getCheckeredFallback } from "./utils";
+import type { RecraftStyleOptions } from "./config";
 
-export interface LivingImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
+export interface LivingImageProps
+  extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> {
   prompt: string;
   width?: number;
   height?: number;
@@ -10,16 +11,34 @@ export interface LivingImageProps extends Omit<React.ImgHTMLAttributes<HTMLImage
   recraftStyle?: RecraftStyleOptions;
 }
 
-export function LivingImage({ prompt, width, height, seed, recraftStyle, alt, ...imgProps }: LivingImageProps) {
+export function LivingImage({
+  prompt,
+  width,
+  height,
+  seed,
+  recraftStyle,
+  alt,
+  ...imgProps
+}: LivingImageProps) {
   // Generate the expected image path using the same logic as the macro
   const imageSrc = getImageSrc(prompt, width, height, seed, recraftStyle);
+  const [src, setSrc] = useState(imageSrc);
+  const fallback = getCheckeredFallback();
+
+  const handleError = () => {
+    // If image fails to load, use checkered fallback
+    if (src !== fallback) {
+      setSrc(fallback);
+    }
+  };
 
   return (
     <img
-      src={imageSrc}
+      src={src}
       width={width}
       height={height}
       alt={alt || prompt}
+      onError={handleError}
       {...imgProps}
     />
   );

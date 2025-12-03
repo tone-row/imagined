@@ -71,6 +71,9 @@ export async function loadConfig(
         if (fileConfig.model !== undefined) {
           config.model = fileConfig.model;
         }
+        if (fileConfig.publicPath !== undefined) {
+          config.publicPath = fileConfig.publicPath;
+        }
         
         console.log(`✅ Loaded config from ${configFile}`);
       } catch (error) {

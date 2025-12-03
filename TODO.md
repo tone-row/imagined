@@ -1,5 +1,5 @@
 - [x] Make sure we look for a living-image.config.ts file in the root
-- [ ] Allow passing other command line arguments, such as the output folder (CLI arguments should match what can go in the config file too, and CLI args should maybe override config options) - Note: outputDir CLI arg already works and overrides config
+- [x] Allow passing other command line arguments, such as the output folder (CLI arguments should match what can go in the config file too, and CLI args should maybe override config options) - Note: outputDir CLI arg already works and overrides config
 - [ ] Should assume . if no source directory to check is passed
 - [ ] Should assume generate if no script is given to run
 - [ ] figure out how vite and next specific dev scripts could work for file watching

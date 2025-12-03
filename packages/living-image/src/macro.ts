@@ -211,30 +211,37 @@ function transformLivingImageToImg(
     match.recraftStyle
   );
 
-  // Determine the public path based on output directory
-  // If outputDir is in public/, use absolute path from root (Vite serves public/ from /)
-  // Otherwise use relative path
+  // Determine the public path for the image URL
+  // Priority: 1. config.publicPath (explicit), 2. infer from outputDir, 3. default
   let imagePath: string;
-  if (
+  const imageFormat = config.imageFormat || "jpg";
+  
+  if (config.publicPath) {
+    // Use explicit publicPath from config
+    const publicPath = config.publicPath.startsWith("/") 
+      ? config.publicPath 
+      : `/${config.publicPath}`;
+    const cleanPath = publicPath.endsWith("/") 
+      ? publicPath.slice(0, -1) 
+      : publicPath;
+    imagePath = `${cleanPath}/${imageKey}.${imageFormat}`;
+  } else if (
     config.outputDir &&
     (config.outputDir.includes("public") ||
       config.outputDir.includes("public\\"))
   ) {
-    // Extract the path relative to public folder
-    // Handle both absolute and relative paths
+    // Infer from outputDir if it's in public/
     const normalizedPath = config.outputDir.replace(/\\/g, "/");
     const match = normalizedPath.match(/public\/(.+)$/);
     if (match && match[1]) {
-      // Path is like public/generated-images or public/subfolder/generated-images
       const relativePath = match[1];
-      imagePath = `/${relativePath}/${imageKey}.jpg`; // Absolute path from root
+      imagePath = `/${relativePath}/${imageKey}.${imageFormat}`;
     } else {
-      // Fallback: assume generated-images is directly in public
-      imagePath = `/generated-images/${imageKey}.jpg`;
+      imagePath = `/generated-images/${imageKey}.${imageFormat}`;
     }
   } else {
-    // Relative path for non-public directories
-    imagePath = `./generated-images/${imageKey}.jpg`;
+    // Default fallback
+    imagePath = `./generated-images/${imageKey}.${imageFormat}`;
   }
 
   // Build the img element

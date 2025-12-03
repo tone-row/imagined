@@ -1,4 +1,4 @@
-import type { LivingImageConfig } from "./packages/living-image/src/config";
+import type { LivingImageConfig } from "living-image";
 
 /**
  * Example configuration file for living-image
@@ -12,14 +12,46 @@ import type { LivingImageConfig } from "./packages/living-image/src/config";
  * 3. This config file
  * 4. package.json "livingImage" field
  * 5. Default values
+ * 
+ * IMPORTANT: For the component to use publicPath and imageFormat in the browser,
+ * you need to configure them in your app initialization code. For example, in your main.tsx:
+ * 
+ * ```tsx
+ * import { configureImageSettings } from "living-image";
+ * 
+ * // Configure with the same values from your config file
+ * configureImageSettings({
+ *   publicPath: "/generated-images",  // Match your config's publicPath
+ *   imageFormat: "jpg",                // Match your config's imageFormat
+ * });
+ * ```
+ * 
+ * Alternatively, you can export these values from your config file and import them:
+ * 
+ * ```tsx
+ * // In living-image.config.ts, also export:
+ * export const publicPath = "/generated-images";
+ * export const imageFormat = "jpg" as const;
+ * 
+ * // Then in main.tsx:
+ * import { configureImageSettings } from "living-image";
+ * import { publicPath, imageFormat } from "./living-image.config.ts";
+ * configureImageSettings({ publicPath, imageFormat });
+ * ```
  */
 const config: LivingImageConfig = {
   // API Configuration
   // apiKey: process.env.RECRAFT_API_KEY, // Usually set via .env file
 
   // Output Configuration
-  outputDir: "./public/generated-images", // Where generated images will be saved
+  outputDir: "./public/generated-images", // Where generated images will be saved on disk
   imageFormat: "jpg", // "jpg" | "png" | "webp"
+  
+  // Public Path Configuration
+  // The URL path used by the component to reference images
+  // This can differ from outputDir (e.g., outputDir: "./public/generated-images", publicPath: "/generated-images")
+  // If not set, will be inferred from outputDir
+  publicPath: "/generated-images", // URL path (e.g., "/generated-images" or "/assets/images")
 
   // Global Style Configuration
   // This style will be used as the default for all images unless overridden
