@@ -1,6 +1,7 @@
 import type { LivingImageConfig } from "living-image";
 
 const config: LivingImageConfig = {
+  sourceDir: "./src",
   outputDir: "./public/generated-images",
   publicPath: "/generated-images",
   imageFormat: "jpg",

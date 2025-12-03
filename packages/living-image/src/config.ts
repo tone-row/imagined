@@ -4,6 +4,10 @@ export interface LivingImageConfig {
   // API Configuration
   apiKey?: string;
 
+  // Source Configuration
+  // Directory to scan for LivingImage components (defaults to current directory)
+  sourceDir?: string;
+
   // Output Configuration
   outputDir?: string;
   imageFormat?: "jpg" | "png" | "webp";

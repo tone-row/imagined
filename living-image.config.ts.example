@@ -43,6 +43,11 @@ const config: LivingImageConfig = {
   // API Configuration
   // apiKey: process.env.RECRAFT_API_KEY, // Usually set via .env file
 
+  // Source Configuration
+  // Directory to scan for LivingImage components (defaults to current directory if not set)
+  // If not specified here, you can pass it via CLI: living-image generate ./src
+  sourceDir: "./src", // Optional: directory to scan for LivingImage components
+
   // Output Configuration
   outputDir: "./public/generated-images", // Where generated images will be saved on disk
   imageFormat: "jpg", // "jpg" | "png" | "webp"

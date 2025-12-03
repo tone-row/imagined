@@ -410,18 +410,29 @@ async function scanDirectory(
 }
 
 export async function runMacro(
-  targetDir: string = process.cwd(),
+  targetDir: string | undefined = undefined,
   options: { generate?: boolean; outputDir?: string } = {}
 ): Promise<void> {
-  console.log("🎨 Running living-image macro...");
-  console.log(`Scanning directory: ${targetDir}\n`);
-
-  // Load configuration with dotenv support
-  // Use the directory containing targetDir (project root) for config
-  const projectRoot = targetDir.includes("src")
-    ? join(targetDir, "..")
-    : targetDir;
+  // Determine project root first (use current directory as starting point)
+  const projectRoot = process.cwd();
   const config = await loadConfig(projectRoot);
+  
+  // Determine the target directory to scan
+  // Priority: 1. CLI argument, 2. config.sourceDir, 3. current directory
+  let finalTargetDir: string;
+  if (targetDir) {
+    // CLI argument provided - resolve relative to project root
+    finalTargetDir = join(projectRoot, targetDir);
+  } else if (config.sourceDir) {
+    // Use sourceDir from config - resolve relative to project root
+    finalTargetDir = join(projectRoot, config.sourceDir);
+  } else {
+    // Default to current directory
+    finalTargetDir = projectRoot;
+  }
+  
+  console.log("🎨 Running living-image macro...");
+  console.log(`Scanning directory: ${finalTargetDir}\n`);
 
   // Override with CLI options
   if (options.outputDir) {
@@ -461,20 +472,70 @@ export async function runMacro(
     console.log("👀 Scan-only mode (use --generate to create images)\n");
   }
 
-  await scanDirectory(targetDir, config, generateImages);
+  await scanDirectory(finalTargetDir, config, generateImages);
 
   console.log("✅ Macro scan complete!");
 }
 
 // If run directly
 if (import.meta.main) {
-  const targetDir = process.argv[2] || process.cwd();
-  const generateFlag =
-    process.argv.includes("--generate") || process.argv.includes("-g");
-  const outputDirFlag = process.argv.find((arg) => arg.startsWith("--output="));
-  const outputDir = outputDirFlag ? outputDirFlag.split("=")[1] : undefined;
-
-  runMacro(targetDir, { generate: generateFlag, outputDir }).catch(
+  const args = process.argv.slice(2);
+  
+  // Parse command-style arguments: living-image-macro [command] [directory] [flags]
+  // Examples:
+  //   living-image-macro                    -> generate .
+  //   living-image-macro generate            -> generate .
+  //   living-image-macro generate ./src      -> generate ./src
+  //   living-image-macro ./src               -> generate ./src (backward compat)
+  //   living-image-macro --generate          -> generate . (backward compat)
+  
+  let command: string | undefined;
+  let targetDir: string | undefined;
+  let generateFlag = false;
+  let outputDir: string | undefined;
+  
+  // Extract flags first (they can appear anywhere)
+  const remainingArgs: string[] = [];
+  for (const arg of args) {
+    if (arg === "--generate" || arg === "-g") {
+      generateFlag = true;
+    } else if (arg.startsWith("--output=")) {
+      outputDir = arg.split("=")[1];
+    } else {
+      remainingArgs.push(arg);
+    }
+  }
+  
+  // Parse remaining arguments (command and directory)
+  if (remainingArgs.length === 0) {
+    // No arguments: default to generate command, no directory (will use config or default)
+    command = "generate";
+    targetDir = undefined; // Will use config.sourceDir or default to current directory
+  } else if (remainingArgs.length === 1) {
+    // One argument: could be command or directory
+    const arg = remainingArgs[0];
+    // Check if it looks like a directory path (starts with . or /, or contains /)
+    if (arg.startsWith(".") || arg.startsWith("/") || arg.includes("/") || arg.includes("\\")) {
+      // Looks like a directory path
+      targetDir = arg;
+      command = "generate"; // Default command
+    } else {
+      // Assume it's a command
+      command = arg;
+      targetDir = undefined; // Will use config.sourceDir or default to current directory
+    }
+  } else {
+    // Two or more arguments: first is command, second is directory
+    command = remainingArgs[0];
+    targetDir = remainingArgs[1];
+  }
+  
+  // Determine if generation should happen
+  // If command is "generate" or generateFlag is set, enable generation
+  const shouldGenerate = command === "generate" || generateFlag;
+  
+  // Pass targetDir only if explicitly provided (will use config.sourceDir or default if undefined)
+  runMacro(targetDir, { generate: shouldGenerate, outputDir }).catch(
     console.error
   );
 }
