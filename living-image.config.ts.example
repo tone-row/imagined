@@ -1,0 +1,36 @@
+import type { LivingImageConfig } from "./packages/living-image/src/config";
+
+/**
+ * Example configuration file for living-image
+ * 
+ * Copy this file to `living-image.config.ts` in your project root
+ * and customize the settings as needed.
+ * 
+ * Configuration priority (highest to lowest):
+ * 1. Environment variables (RECRAFT_API_KEY, LIVING_IMAGE_OUTPUT_DIR)
+ * 2. CLI arguments (override config file)
+ * 3. This config file
+ * 4. package.json "livingImage" field
+ * 5. Default values
+ */
+const config: LivingImageConfig = {
+  // API Configuration
+  // apiKey: process.env.RECRAFT_API_KEY, // Usually set via .env file
+
+  // Output Configuration
+  outputDir: "./public/generated-images", // Where generated images will be saved
+  imageFormat: "jpg", // "jpg" | "png" | "webp"
+
+  // Global Style Configuration
+  // This style will be used as the default for all images unless overridden
+  defaultStyle: {
+    style: "digital_illustration",
+    substyle: "hand_drawn",
+  },
+
+  // Model Configuration
+  model: "recraftv3",
+};
+
+export default config;
+

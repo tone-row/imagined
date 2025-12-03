@@ -1,9 +1,19 @@
 #!/usr/bin/env -S bun run
 
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync } from 'fs';
-import { join, extname } from 'path';
-import { RecraftGenerator } from './generators/recraft';
-import { loadConfig } from './config';
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  statSync,
+  existsSync,
+  mkdirSync,
+} from "fs";
+import { join, extname } from "path";
+import { RecraftGenerator } from "./generators/recraft";
+import { loadConfig } from "./config-server";
+import parser from "@babel/parser";
+import traverse from "@babel/traverse";
+import * as t from "@babel/types";
 
 interface LivingImageMatch {
   fullMatch: string;
@@ -15,66 +25,217 @@ interface LivingImageMatch {
   otherProps: string;
 }
 
+// Helper to extract value from AST node
+function extractValueFromNode(
+  node: t.Node | null | undefined
+): string | number | undefined {
+  if (!node) return undefined;
+
+  // Unwrap JSXExpressionContainer if present (e.g., width={1024})
+  let unwrappedNode = node;
+  if (t.isJSXExpressionContainer(node)) {
+    unwrappedNode = node.expression;
+  }
+
+  if (t.isStringLiteral(unwrappedNode)) {
+    return unwrappedNode.value;
+  }
+  if (t.isNumericLiteral(unwrappedNode)) {
+    return unwrappedNode.value;
+  }
+  if (t.isTemplateLiteral(unwrappedNode) && unwrappedNode.quasis.length === 1) {
+    return (
+      unwrappedNode.quasis[0].value.cooked || unwrappedNode.quasis[0].value.raw
+    );
+  }
+  return undefined;
+}
+
+// Helper to extract object expression as JSON string (for recraftStyle)
+function extractObjectExpression(
+  node: t.ObjectExpression,
+  source: string
+): string {
+  const props: string[] = [];
+
+  for (const prop of node.properties) {
+    if (t.isObjectProperty(prop)) {
+      let key: string;
+      if (t.isIdentifier(prop.key)) {
+        key = prop.key.name;
+      } else if (t.isStringLiteral(prop.key)) {
+        key = prop.key.value;
+      } else {
+        continue; // Skip computed properties for now
+      }
+
+      let value: string;
+
+      if (t.isStringLiteral(prop.value)) {
+        value = `"${prop.value.value}"`;
+      } else if (t.isNumericLiteral(prop.value)) {
+        value = String(prop.value.value);
+      } else if (t.isBooleanLiteral(prop.value)) {
+        value = String(prop.value.value);
+      } else if (t.isObjectExpression(prop.value)) {
+        value = `{${extractObjectExpression(prop.value, source)}}`;
+      } else {
+        // For other types, extract from source code
+        if (prop.value.start !== null && prop.value.end !== null) {
+          value = source.substring(prop.value.start, prop.value.end);
+        } else {
+          continue; // Skip if we can't extract
+        }
+      }
+
+      props.push(`"${key}":${value}`);
+    }
+  }
+
+  return props.join(",");
+}
+
 function findLivingImageComponents(content: string): LivingImageMatch[] {
   const matches: LivingImageMatch[] = [];
 
-  // Simple regex to find LivingImage components
-  // This is a basic implementation - in production we'd use a proper AST parser
-  const componentRegex = /<LivingImage\s+([^>]+)(?:\s*\/?>|>[^<]*<\/LivingImage>)/g;
+  try {
+    // Parse the file content into an AST
+    const ast = parser.parse(content, {
+      sourceType: "module",
+      plugins: ["jsx", "typescript", "decorators-legacy"],
+    });
 
-  let match;
-  while ((match = componentRegex.exec(content)) !== null) {
-    const fullMatch = match[0];
-    const propsString = match[1];
+    // Traverse the AST to find LivingImage JSX elements
+    traverse(ast, {
+      JSXOpeningElement(path) {
+        const node = path.node;
 
-    // Extract props using simple regex (in production, would use AST parser)
-    const promptMatch = propsString.match(/prompt=["']([^"']+)["']/);
-    const widthMatch = propsString.match(/width=\{?(\d+)\}?/);
-    const heightMatch = propsString.match(/height=\{?(\d+)\}?/);
-    const seedMatch = propsString.match(/seed=["']([^"']+)["']/);
-    const recraftStyleMatch = propsString.match(/recraftStyle=\{([^}]+)\}/);
+        // Check if this is a LivingImage component
+        if (t.isJSXIdentifier(node.name) && node.name.name === "LivingImage") {
+          // Extract props
+          let prompt: string | undefined;
+          let width: number | undefined;
+          let height: number | undefined;
+          let seed: string | undefined;
+          let recraftStyle: string | undefined;
+          const otherProps: string[] = [];
 
-    if (promptMatch) {
-      // Extract other props by removing the ones we've parsed
-      let otherProps = propsString;
-      otherProps = otherProps.replace(/prompt=["'][^"']+["']/, '');
-      otherProps = otherProps.replace(/width=\{?\d+\}?/, '');
-      otherProps = otherProps.replace(/height=\{?\d+\}?/, '');
-      otherProps = otherProps.replace(/seed=["'][^"']+["']/, '');
-      otherProps = otherProps.replace(/recraftStyle=\{[^}]+\}/, '');
-      otherProps = otherProps.trim();
+          // Process each attribute
+          for (const attr of node.attributes) {
+            if (t.isJSXAttribute(attr) && t.isJSXIdentifier(attr.name)) {
+              const attrName = attr.name.name;
+              const attrValue = attr.value;
 
-      matches.push({
-        fullMatch,
-        prompt: promptMatch[1],
-        width: widthMatch ? parseInt(widthMatch[1]) : undefined,
-        height: heightMatch ? parseInt(heightMatch[1]) : undefined,
-        seed: seedMatch ? seedMatch[1] : undefined,
-        recraftStyle: recraftStyleMatch ? recraftStyleMatch[1] : undefined,
-        otherProps
-      });
-    }
+              if (attrName === "prompt") {
+                prompt = extractValueFromNode(attrValue) as string | undefined;
+              } else if (attrName === "width") {
+                width = extractValueFromNode(attrValue) as number | undefined;
+              } else if (attrName === "height") {
+                height = extractValueFromNode(attrValue) as number | undefined;
+              } else if (attrName === "seed") {
+                seed = extractValueFromNode(attrValue) as string | undefined;
+              } else if (attrName === "recraftStyle") {
+                // Extract object expression
+                if (
+                  attrValue &&
+                  t.isJSXExpressionContainer(attrValue) &&
+                  t.isObjectExpression(attrValue.expression)
+                ) {
+                  const extracted = extractObjectExpression(
+                    attrValue.expression,
+                    content
+                  );
+                  // Normalize to ensure consistent key generation regardless of source order
+                  recraftStyle = normalizeRecraftStyleString(extracted);
+                }
+              } else {
+                // Collect other props for reconstruction
+                if (t.isStringLiteral(attrValue)) {
+                  otherProps.push(`${attrName}="${attrValue.value}"`);
+                } else if (t.isJSXExpressionContainer(attrValue)) {
+                  // For expression containers, we'd need to stringify the expression
+                  // For now, we'll reconstruct from the source
+                  const source = content.substring(
+                    attrValue.start || 0,
+                    attrValue.end || 0
+                  );
+                  otherProps.push(`${attrName}={${source}}`);
+                }
+              }
+            }
+          }
+
+          // Only add if we found a prompt (required prop)
+          if (prompt) {
+            // Get the full match from source
+            const fullMatchStart = node.start || 0;
+            const fullMatchEnd = node.end || 0;
+            const fullMatch = content.substring(fullMatchStart, fullMatchEnd);
+
+            matches.push({
+              fullMatch,
+              prompt,
+              width,
+              height,
+              seed,
+              recraftStyle,
+              otherProps: otherProps.join(" "),
+            });
+          }
+        }
+      },
+    });
+  } catch (error) {
+    console.error(
+      `Error parsing file: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    // Fall back to empty array if parsing fails
   }
 
   return matches;
 }
 
-function generateImageKey(prompt: string, width?: number, height?: number, seed?: string, recraftStyle?: string): string {
-  // Create a hash-like key from the prompt and all parameters that affect image generation
-  const keyString = `${prompt}_${width || ''}_${height || ''}_${seed || ''}_${recraftStyle || ''}`;
-  // Simple hash function (in production, use a proper hash like crypto.createHash)
-  let hash = 0;
-  for (let i = 0; i < keyString.length; i++) {
-    const char = keyString.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(36);
-}
+import { generateImageKey, normalizeRecraftStyleString } from "./utils";
 
-function transformLivingImageToImg(match: LivingImageMatch): string {
-  const imageKey = generateImageKey(match.prompt, match.width, match.height, match.seed, match.recraftStyle);
-  const imagePath = `./generated-images/${imageKey}.jpg`; // For now, assume JPG
+function transformLivingImageToImg(
+  match: LivingImageMatch,
+  config: any
+): string {
+  const imageKey = generateImageKey(
+    match.prompt,
+    match.width,
+    match.height,
+    match.seed,
+    match.recraftStyle
+  );
+
+  // Determine the public path based on output directory
+  // If outputDir is in public/, use absolute path from root (Vite serves public/ from /)
+  // Otherwise use relative path
+  let imagePath: string;
+  if (
+    config.outputDir &&
+    (config.outputDir.includes("public") ||
+      config.outputDir.includes("public\\"))
+  ) {
+    // Extract the path relative to public folder
+    // Handle both absolute and relative paths
+    const normalizedPath = config.outputDir.replace(/\\/g, "/");
+    const match = normalizedPath.match(/public\/(.+)$/);
+    if (match && match[1]) {
+      // Path is like public/generated-images or public/subfolder/generated-images
+      const relativePath = match[1];
+      imagePath = `/${relativePath}/${imageKey}.jpg`; // Absolute path from root
+    } else {
+      // Fallback: assume generated-images is directly in public
+      imagePath = `/generated-images/${imageKey}.jpg`;
+    }
+  } else {
+    // Relative path for non-public directories
+    imagePath = `./generated-images/${imageKey}.jpg`;
+  }
 
   // Build the img element
   let imgElement = `<img src="${imagePath}"`;
@@ -90,13 +251,22 @@ function transformLivingImageToImg(match: LivingImageMatch): string {
   // Add alt text based on prompt
   imgElement += ` alt="${match.prompt}"`;
 
-  imgElement += ' />';
+  imgElement += " />";
 
   return imgElement;
 }
 
-async function generateImageIfNeeded(match: LivingImageMatch, config: any): Promise<boolean> {
-  const imageKey = generateImageKey(match.prompt, match.width, match.height, match.seed, match.recraftStyle);
+async function generateImageIfNeeded(
+  match: LivingImageMatch,
+  config: any
+): Promise<boolean> {
+  const imageKey = generateImageKey(
+    match.prompt,
+    match.width,
+    match.height,
+    match.seed,
+    match.recraftStyle
+  );
   const imagePath = join(config.outputDir, `${imageKey}.jpg`);
 
   // Check if image already exists
@@ -106,7 +276,9 @@ async function generateImageIfNeeded(match: LivingImageMatch, config: any): Prom
   }
 
   if (!config.apiKey) {
-    console.log(`    ⚠️  RECRAFT_API_KEY not set - skipping generation for: ${imagePath}`);
+    console.log(
+      `    ⚠️  RECRAFT_API_KEY not set - skipping generation for: ${imagePath}`
+    );
     return false;
   }
 
@@ -117,9 +289,13 @@ async function generateImageIfNeeded(match: LivingImageMatch, config: any): Prom
   let recraftStyle;
   if (match.recraftStyle) {
     try {
+      // recraftStyle is already a JSON string from AST extraction
       recraftStyle = JSON.parse(`{${match.recraftStyle}}`);
     } catch (error) {
       console.log(`    ⚠️  Invalid recraftStyle format: ${match.recraftStyle}`);
+      console.log(
+        `    Error: ${error instanceof Error ? error.message : String(error)}`
+      );
       // Use default style from config
       recraftStyle = config.defaultStyle;
     }
@@ -146,8 +322,12 @@ async function generateImageIfNeeded(match: LivingImageMatch, config: any): Prom
   }
 }
 
-async function processFile(filePath: string, config: any, generateImages: boolean = false): Promise<boolean> {
-  const content = readFileSync(filePath, 'utf-8');
+async function processFile(
+  filePath: string,
+  config: any,
+  generateImages: boolean = false
+): Promise<boolean> {
+  const content = readFileSync(filePath, "utf-8");
   const matches = findLivingImageComponents(content);
 
   if (matches.length === 0) {
@@ -166,7 +346,9 @@ async function processFile(filePath: string, config: any, generateImages: boolea
   for (const match of matches) {
     console.log(`  - Prompt: "${match.prompt}"`);
     if (match.width || match.height) {
-      console.log(`    Dimensions: ${match.width || 'auto'} x ${match.height || 'auto'}`);
+      console.log(
+        `    Dimensions: ${match.width || "auto"} x ${match.height || "auto"}`
+      );
     }
     if (match.seed) console.log(`    Seed: ${match.seed}`);
     if (match.recraftStyle) {
@@ -178,61 +360,90 @@ async function processFile(filePath: string, config: any, generateImages: boolea
       await generateImageIfNeeded(match, config);
     }
 
-    const imgElement = transformLivingImageToImg(match);
+    const imgElement = transformLivingImageToImg(match, config);
     newContent = newContent.replace(match.fullMatch, imgElement);
   }
 
   // For now, just log the transformation - don't write back yet
-  console.log('Transformed content preview:');
-  console.log('---');
-  console.log(newContent.slice(0, 500) + (newContent.length > 500 ? '...' : ''));
-  console.log('---\n');
+  console.log("Transformed content preview:");
+  console.log("---");
+  console.log(
+    newContent.slice(0, 500) + (newContent.length > 500 ? "..." : "")
+  );
+  console.log("---\n");
 
   return true;
 }
 
-async function scanDirectory(dirPath: string, config: any, generateImages: boolean = false): Promise<void> {
+async function scanDirectory(
+  dirPath: string,
+  config: any,
+  generateImages: boolean = false
+): Promise<void> {
   const items = readdirSync(dirPath);
 
   for (const item of items) {
     const itemPath = join(dirPath, item);
     const stat = statSync(itemPath);
 
-    if (stat.isDirectory() && item !== 'node_modules' && item !== '.git' && item !== 'dist') {
+    if (
+      stat.isDirectory() &&
+      item !== "node_modules" &&
+      item !== ".git" &&
+      item !== "dist"
+    ) {
       await scanDirectory(itemPath, config, generateImages);
     } else if (stat.isFile()) {
       const ext = extname(item);
-      if (ext === '.tsx' || ext === '.jsx' || ext === '.ts') {
+      if (ext === ".tsx" || ext === ".jsx" || ext === ".ts") {
         await processFile(itemPath, config, generateImages);
       }
     }
   }
 }
 
-export async function runMacro(targetDir: string = process.cwd(), options: { generate?: boolean, outputDir?: string } = {}): Promise<void> {
-  console.log('🎨 Running living-image macro...');
+export async function runMacro(
+  targetDir: string = process.cwd(),
+  options: { generate?: boolean; outputDir?: string } = {}
+): Promise<void> {
+  console.log("🎨 Running living-image macro...");
   console.log(`Scanning directory: ${targetDir}\n`);
 
   // Load configuration with dotenv support
-  const config = loadConfig(targetDir);
+  // Use the directory containing targetDir (project root) for config
+  const projectRoot = targetDir.includes("src")
+    ? join(targetDir, "..")
+    : targetDir;
+  const config = await loadConfig(projectRoot);
 
   // Override with CLI options
   if (options.outputDir) {
     config.outputDir = options.outputDir;
-  }
-  if (!config.outputDir) {
-    config.outputDir = join(targetDir, 'generated-images');
+  } else {
+    // Check if public folder exists in project root (common in Vite/React projects)
+    // If no explicit outputDir was set, prefer public/generated-images
+    const publicDir = join(projectRoot, "public", "generated-images");
+    const generatedImagesDir = join(projectRoot, "generated-images");
+
+    if (existsSync(join(projectRoot, "public"))) {
+      config.outputDir = publicDir;
+      console.log(
+        "📁 Using public/generated-images (Vite/React project detected)"
+      );
+    } else {
+      config.outputDir = generatedImagesDir;
+    }
   }
 
   const generateImages = options.generate || false;
 
   if (generateImages) {
-    console.log('🚀 Image generation enabled');
+    console.log("🚀 Image generation enabled");
     console.log(`📋 Model: ${config.model}`);
     if (config.apiKey) {
-      console.log('✅ RECRAFT_API_KEY found');
+      console.log("✅ RECRAFT_API_KEY found");
     } else {
-      console.log('⚠️  RECRAFT_API_KEY not set - images will not be generated');
+      console.log("⚠️  RECRAFT_API_KEY not set - images will not be generated");
     }
     console.log(`📁 Output directory: ${config.outputDir}`);
     if (config.defaultStyle) {
@@ -240,20 +451,23 @@ export async function runMacro(targetDir: string = process.cwd(), options: { gen
     }
     console.log();
   } else {
-    console.log('👀 Scan-only mode (use --generate to create images)\n');
+    console.log("👀 Scan-only mode (use --generate to create images)\n");
   }
 
   await scanDirectory(targetDir, config, generateImages);
 
-  console.log('✅ Macro scan complete!');
+  console.log("✅ Macro scan complete!");
 }
 
 // If run directly
 if (import.meta.main) {
   const targetDir = process.argv[2] || process.cwd();
-  const generateFlag = process.argv.includes('--generate') || process.argv.includes('-g');
-  const outputDirFlag = process.argv.find(arg => arg.startsWith('--output='));
-  const outputDir = outputDirFlag ? outputDirFlag.split('=')[1] : undefined;
+  const generateFlag =
+    process.argv.includes("--generate") || process.argv.includes("-g");
+  const outputDirFlag = process.argv.find((arg) => arg.startsWith("--output="));
+  const outputDir = outputDirFlag ? outputDirFlag.split("=")[1] : undefined;
 
-  runMacro(targetDir, { generate: generateFlag, outputDir }).catch(console.error);
+  runMacro(targetDir, { generate: generateFlag, outputDir }).catch(
+    console.error
+  );
 }
