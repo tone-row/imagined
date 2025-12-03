@@ -1,0 +1,35 @@
+{
+  "name": "living-image",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "bin": {
+    "living-image-macro": "./src/macro.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./macro": {
+      "types": "./src/macro.ts",
+      "import": "./src/macro.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  }
+}
