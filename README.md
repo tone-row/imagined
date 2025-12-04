@@ -36,7 +36,7 @@ RECRAFT_API_KEY=your_api_key_here
 ### 1. Use the Component
 
 ```tsx
-import { Imagined } from 'imagined';
+import { Imagined } from "imagined";
 
 function App() {
   return (
@@ -111,7 +111,7 @@ Use Recraft's style system for consistent image generation:
   height={1024}
   recraftStyle={{
     style: "realistic_image",
-    substyle: "natural_light"
+    substyle: "natural_light",
   }}
 />
 ```
@@ -142,12 +142,12 @@ Create an `imagined.config.js` file in your project root:
 
 ```js
 export default {
-  outputDir: './public/generated-images',
-  model: 'recraftv3',
+  outputDir: "./public/generated-images",
+  model: "recraftv3",
   defaultStyle: {
-    style: 'realistic_image',
-    substyle: 'natural_light'
-  }
+    style: "realistic_image",
+    substyle: "natural_light",
+  },
 };
 ```
 
@@ -187,6 +187,7 @@ npx imagined watch
 ```
 
 The watch mode will automatically:
+
 - Detect when you add or modify `Imagined` components
 - Generate missing images on the fly
 - Skip images that already exist
