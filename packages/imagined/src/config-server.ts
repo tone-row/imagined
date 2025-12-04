@@ -1,13 +1,13 @@
 import { join, resolve } from "path";
 import { existsSync, readFileSync } from "fs";
 import { config as dotenvConfig } from "dotenv";
-import type { LivingImageConfig } from "./config";
+import type { ImaginedConfig } from "./config";
 
 /**
  * Load configuration from multiple sources in order of priority:
  * 1. Environment variables
- * 2. living-image.config.js/ts
- * 3. package.json "livingImage" field
+ * 2. imagined.config.js/ts
+ * 3. package.json "imagined" field
  * 4. Default values
  *
  * NOTE: This function is server-only and uses Node.js modules.
@@ -15,7 +15,7 @@ import type { LivingImageConfig } from "./config";
  */
 export async function loadConfig(
   projectRoot: string = process.cwd()
-): Promise<LivingImageConfig> {
+): Promise<ImaginedConfig> {
   // Load .env files automatically
   const envFiles = [".env.local", ".env", ".env.production"];
   for (const envFile of envFiles) {
@@ -26,7 +26,7 @@ export async function loadConfig(
     }
   }
 
-  const config: LivingImageConfig = {
+  const config: ImaginedConfig = {
     // Defaults
     outputDir: "./generated-images",
     imageFormat: "jpg",
@@ -37,11 +37,11 @@ export async function loadConfig(
     },
   };
 
-  // 2. living-image.config.js/ts
+  // 2. imagined.config.js/ts
   const configFiles = [
-    "living-image.config.ts",
-    "living-image.config.js",
-    "living-image.config.mjs",
+    "imagined.config.ts",
+    "imagined.config.js",
+    "imagined.config.mjs",
   ];
 
   for (const configFile of configFiles) {
@@ -86,13 +86,13 @@ export async function loadConfig(
     }
   }
 
-  // 3. package.json "livingImage" field
+  // 3. package.json "imagined" field
   const packageJsonPath = join(projectRoot, "package.json");
   if (existsSync(packageJsonPath)) {
     try {
       const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-      if (packageJson.livingImage) {
-        Object.assign(config, packageJson.livingImage);
+      if (packageJson.imagined) {
+        Object.assign(config, packageJson.imagined);
       }
     } catch (error) {
       console.warn("⚠️  Failed to parse package.json:", error);
@@ -104,8 +104,8 @@ export async function loadConfig(
     config.apiKey = process.env.RECRAFT_API_KEY;
   }
 
-  if (process.env.LIVING_IMAGE_OUTPUT_DIR) {
-    config.outputDir = process.env.LIVING_IMAGE_OUTPUT_DIR;
+  if (process.env.IMAGINED_OUTPUT_DIR) {
+    config.outputDir = process.env.IMAGINED_OUTPUT_DIR;
   }
 
   return config;

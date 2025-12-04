@@ -8,7 +8,7 @@ let globalImageFormat: "jpg" | "png" | "webp" = "jpg";
 
 /**
  * Configure the public path used for image URLs.
- * This should match the publicPath from your living-image.config.ts file.
+ * This should match the publicPath from your imagined.config.ts file.
  *
  * @param path - The public path (e.g., "/generated-images" or "/assets/images")
  */
@@ -29,7 +29,7 @@ export function getImagePath(): string {
 
 /**
  * Configure the image format used for image URLs.
- * This should match the imageFormat from your living-image.config.ts file.
+ * This should match the imageFormat from your imagined.config.ts file.
  *
  * @param format - The image format ("jpg" | "png" | "webp")
  */

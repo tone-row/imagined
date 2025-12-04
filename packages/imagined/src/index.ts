@@ -1,6 +1,6 @@
 // Main component and types
-export { LivingImage, type LivingImageProps } from "./LivingImage.tsx";
-export { default } from "./LivingImage.tsx";
+export { Imagined, type ImaginedProps } from "./Imagined.tsx";
+export { default } from "./Imagined.tsx";
 
 // Utility functions
 export { 
@@ -13,7 +13,7 @@ export {
 } from "./utils";
 
 // Configuration and types (client-safe - no server-only functions)
-export { type LivingImageConfig, type RecraftStyleOptions } from "./config";
+export { type ImaginedConfig, type RecraftStyleOptions } from "./config";
 
 // All Recraft style types for strong typing
 export type * from "./types/recraft-styles";

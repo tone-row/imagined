@@ -7,15 +7,17 @@ import {
   statSync,
   existsSync,
   mkdirSync,
+  unlinkSync,
+  watch,
 } from "fs";
-import { join, extname } from "path";
+import { join, extname, relative } from "path";
 import { RecraftGenerator } from "./generators/recraft";
 import { loadConfig } from "./config-server";
 import parser from "@babel/parser";
 import traverse from "@babel/traverse";
 import * as t from "@babel/types";
 
-interface LivingImageMatch {
+interface ImaginedMatch {
   fullMatch: string;
   prompt: string;
   width?: number;
@@ -95,8 +97,8 @@ function extractObjectExpression(
   return props.join(",");
 }
 
-function findLivingImageComponents(content: string): LivingImageMatch[] {
-  const matches: LivingImageMatch[] = [];
+function findImaginedComponents(content: string): ImaginedMatch[] {
+  const matches: ImaginedMatch[] = [];
 
   try {
     // Parse the file content into an AST
@@ -105,13 +107,13 @@ function findLivingImageComponents(content: string): LivingImageMatch[] {
       plugins: ["jsx", "typescript", "decorators-legacy"],
     });
 
-    // Traverse the AST to find LivingImage JSX elements
+    // Traverse the AST to find Imagined JSX elements
     traverse(ast, {
       JSXOpeningElement(path) {
         const node = path.node;
 
-        // Check if this is a LivingImage component
-        if (t.isJSXIdentifier(node.name) && node.name.name === "LivingImage") {
+        // Check if this is an Imagined component
+        if (t.isJSXIdentifier(node.name) && node.name.name === "Imagined") {
           // Extract props
           let prompt: string | undefined;
           let width: number | undefined;
@@ -199,8 +201,8 @@ function findLivingImageComponents(content: string): LivingImageMatch[] {
 
 import { generateImageKey, normalizeRecraftStyleString } from "./utils";
 
-function transformLivingImageToImg(
-  match: LivingImageMatch,
+function transformImaginedToImg(
+  match: ImaginedMatch,
   config: any
 ): string {
   const imageKey = generateImageKey(
@@ -215,14 +217,14 @@ function transformLivingImageToImg(
   // Priority: 1. config.publicPath (explicit), 2. infer from outputDir, 3. default
   let imagePath: string;
   const imageFormat = config.imageFormat || "jpg";
-  
+
   if (config.publicPath) {
     // Use explicit publicPath from config
-    const publicPath = config.publicPath.startsWith("/") 
-      ? config.publicPath 
+    const publicPath = config.publicPath.startsWith("/")
+      ? config.publicPath
       : `/${config.publicPath}`;
-    const cleanPath = publicPath.endsWith("/") 
-      ? publicPath.slice(0, -1) 
+    const cleanPath = publicPath.endsWith("/")
+      ? publicPath.slice(0, -1)
       : publicPath;
     imagePath = `${cleanPath}/${imageKey}.${imageFormat}`;
   } else if (
@@ -264,7 +266,7 @@ function transformLivingImageToImg(
 }
 
 async function generateImageIfNeeded(
-  match: LivingImageMatch,
+  match: ImaginedMatch,
   config: any
 ): Promise<boolean> {
   const imageKey = generateImageKey(
@@ -335,13 +337,13 @@ async function processFile(
   generateImages: boolean = false
 ): Promise<boolean> {
   const content = readFileSync(filePath, "utf-8");
-  const matches = findLivingImageComponents(content);
+  const matches = findImaginedComponents(content);
 
   if (matches.length === 0) {
     return false;
   }
 
-  console.log(`Found ${matches.length} LivingImage components in ${filePath}`);
+  console.log(`Found ${matches.length} Imagined components in ${filePath}`);
 
   // Ensure output directory exists
   if (generateImages && !existsSync(config.outputDir)) {
@@ -367,7 +369,7 @@ async function processFile(
       await generateImageIfNeeded(match, config);
     }
 
-    const imgElement = transformLivingImageToImg(match, config);
+    const imgElement = transformImaginedToImg(match, config);
     newContent = newContent.replace(match.fullMatch, imgElement);
   }
 
@@ -416,7 +418,7 @@ export async function runMacro(
   // Determine project root first (use current directory as starting point)
   const projectRoot = process.cwd();
   const config = await loadConfig(projectRoot);
-  
+
   // Determine the target directory to scan
   // Priority: 1. CLI argument, 2. config.sourceDir, 3. current directory
   let finalTargetDir: string;
@@ -430,8 +432,8 @@ export async function runMacro(
     // Default to current directory
     finalTargetDir = projectRoot;
   }
-  
-  console.log("🎨 Running living-image macro...");
+
+  console.log("🎨 Running imagined macro...");
   console.log(`Scanning directory: ${finalTargetDir}\n`);
 
   // Override with CLI options
@@ -477,23 +479,318 @@ export async function runMacro(
   console.log("✅ Macro scan complete!");
 }
 
+/**
+ * Collect all image keys that are referenced in source files
+ */
+async function collectReferencedImageKeys(
+  dirPath: string,
+  config: any
+): Promise<Set<string>> {
+  const referencedKeys = new Set<string>();
+  const items = readdirSync(dirPath);
+
+  for (const item of items) {
+    const itemPath = join(dirPath, item);
+    const stat = statSync(itemPath);
+
+    if (
+      stat.isDirectory() &&
+      item !== "node_modules" &&
+      item !== ".git" &&
+      item !== "dist"
+    ) {
+      const subKeys = await collectReferencedImageKeys(itemPath, config);
+      subKeys.forEach((key) => referencedKeys.add(key));
+    } else if (stat.isFile()) {
+      const ext = extname(item);
+      if (ext === ".tsx" || ext === ".jsx" || ext === ".ts") {
+        const content = readFileSync(itemPath, "utf-8");
+        const matches = findImaginedComponents(content);
+
+        for (const match of matches) {
+          const imageKey = generateImageKey(
+            match.prompt,
+            match.width,
+            match.height,
+            match.seed,
+            match.recraftStyle
+          );
+          referencedKeys.add(imageKey);
+        }
+      }
+    }
+  }
+
+  return referencedKeys;
+}
+
+/**
+ * Clean up unused images from the output directory
+ */
+export async function cleanupUnusedImages(
+  targetDir: string | undefined = undefined,
+  options: { outputDir?: string; dryRun?: boolean } = {}
+): Promise<void> {
+  const projectRoot = process.cwd();
+  const config = await loadConfig(projectRoot);
+
+  // Determine the target directory to scan
+  let finalTargetDir: string;
+  if (targetDir) {
+    finalTargetDir = join(projectRoot, targetDir);
+  } else if (config.sourceDir) {
+    finalTargetDir = join(projectRoot, config.sourceDir);
+  } else {
+    finalTargetDir = projectRoot;
+  }
+
+  // Determine output directory
+  let finalOutputDir: string;
+  if (options.outputDir) {
+    finalOutputDir = options.outputDir;
+  } else if (config.outputDir) {
+    finalOutputDir = join(projectRoot, config.outputDir);
+  } else {
+    // Default fallback
+    const publicDir = join(projectRoot, "public", "generated-images");
+    const generatedImagesDir = join(projectRoot, "generated-images");
+    finalOutputDir = existsSync(join(projectRoot, "public"))
+      ? publicDir
+      : generatedImagesDir;
+  }
+
+  console.log("🧹 Cleaning up unused images...");
+  console.log(`Scanning source directory: ${finalTargetDir}`);
+  console.log(`Checking output directory: ${finalOutputDir}\n`);
+
+  if (!existsSync(finalOutputDir)) {
+    console.log("⚠️  Output directory does not exist. Nothing to clean.");
+    return;
+  }
+
+  // Collect all referenced image keys from source files
+  const referencedKeys = await collectReferencedImageKeys(
+    finalTargetDir,
+    config
+  );
+  console.log(
+    `Found ${referencedKeys.size} referenced image(s) in source files\n`
+  );
+
+  // Get all images in output directory
+  // Check for all supported formats since images might have been generated with different formats
+  const imageFiles = readdirSync(finalOutputDir).filter((file) => {
+    const ext = extname(file).toLowerCase();
+    return (
+      ext === ".jpg" || ext === ".jpeg" || ext === ".png" || ext === ".webp"
+    );
+  });
+
+  console.log(`Found ${imageFiles.length} image(s) in output directory\n`);
+
+  // Find unused images
+  const unusedImages: string[] = [];
+  for (const imageFile of imageFiles) {
+    // Extract the image key from filename (remove extension)
+    const imageKey = imageFile.replace(/\.(jpg|jpeg|png|webp)$/i, "");
+
+    if (!referencedKeys.has(imageKey)) {
+      unusedImages.push(join(finalOutputDir, imageFile));
+    }
+  }
+
+  if (unusedImages.length === 0) {
+    console.log("✅ No unused images found. Everything is clean!");
+    return;
+  }
+
+  console.log(`Found ${unusedImages.length} unused image(s):`);
+  for (const imagePath of unusedImages) {
+    console.log(`  - ${imagePath}`);
+  }
+  console.log();
+
+  if (options.dryRun) {
+    console.log("🔍 Dry run mode - no files were deleted");
+    console.log(`Would delete ${unusedImages.length} file(s)`);
+  } else {
+    // Delete unused images
+    let deletedCount = 0;
+    for (const imagePath of unusedImages) {
+      try {
+        unlinkSync(imagePath);
+        deletedCount++;
+        console.log(`  ✅ Deleted: ${imagePath}`);
+      } catch (error) {
+        console.error(`  ❌ Failed to delete ${imagePath}:`, error);
+      }
+    }
+    console.log(
+      `\n✅ Cleanup complete! Deleted ${deletedCount} unused image(s)`
+    );
+  }
+}
+
+/**
+ * Watch for file changes and regenerate images as needed
+ */
+export async function watchFiles(
+  targetDir: string | undefined = undefined,
+  options: { outputDir?: string } = {}
+): Promise<void> {
+  const projectRoot = process.cwd();
+  const config = await loadConfig(projectRoot);
+
+  // Determine the target directory to scan
+  let finalTargetDir: string;
+  if (targetDir) {
+    finalTargetDir = join(projectRoot, targetDir);
+  } else if (config.sourceDir) {
+    finalTargetDir = join(projectRoot, config.sourceDir);
+  } else {
+    finalTargetDir = projectRoot;
+  }
+
+  // Determine output directory
+  if (options.outputDir) {
+    config.outputDir = options.outputDir;
+  } else {
+    const publicDir = join(projectRoot, "public", "generated-images");
+    const generatedImagesDir = join(projectRoot, "generated-images");
+
+    if (existsSync(join(projectRoot, "public"))) {
+      config.outputDir = publicDir;
+    } else {
+      config.outputDir = generatedImagesDir;
+    }
+  }
+
+  console.log("👀 Starting file watcher...");
+  console.log(`Watching directory: ${finalTargetDir}`);
+  console.log(`Output directory: ${config.outputDir}`);
+  console.log("Press Ctrl+C to stop\n");
+
+  // Track processed files to avoid duplicate processing
+  const processingFiles = new Set<string>();
+
+  // Debounce function to avoid processing the same file multiple times rapidly
+  const debounceMap = new Map<string, NodeJS.Timeout>();
+  const DEBOUNCE_MS = 300;
+
+  async function processChangedFile(filePath: string) {
+    // Skip if already processing
+    if (processingFiles.has(filePath)) {
+      return;
+    }
+
+    // Clear existing debounce timer
+    if (debounceMap.has(filePath)) {
+      clearTimeout(debounceMap.get(filePath)!);
+    }
+
+    // Set debounce timer
+    const timer = setTimeout(async () => {
+      processingFiles.add(filePath);
+      debounceMap.delete(filePath);
+
+      try {
+        const ext = extname(filePath);
+        if (ext === ".tsx" || ext === ".jsx" || ext === ".ts") {
+          const relativePath = relative(finalTargetDir, filePath);
+          console.log(`\n📝 File changed: ${relativePath}`);
+          await processFile(filePath, config, true);
+        }
+      } catch (error) {
+        console.error(`Error processing ${filePath}:`, error);
+      } finally {
+        processingFiles.delete(filePath);
+      }
+    }, DEBOUNCE_MS);
+
+    debounceMap.set(filePath, timer);
+  }
+
+  // Initial scan
+  console.log("🔍 Performing initial scan...");
+  await scanDirectory(finalTargetDir, config, true);
+  console.log("\n✅ Initial scan complete. Watching for changes...\n");
+
+  // Watch directory recursively
+  function watchDirectory(dirPath: string) {
+    try {
+      const watcher = watch(
+        dirPath,
+        { recursive: true },
+        async (eventType, filename) => {
+          if (!filename) return;
+
+          const filePath = join(dirPath, filename);
+
+          // Skip node_modules, .git, dist, and other ignored directories
+          if (
+            filePath.includes("node_modules") ||
+            filePath.includes(".git") ||
+            filePath.includes("dist") ||
+            filePath.includes(".next")
+          ) {
+            return;
+          }
+
+          try {
+            const stat = statSync(filePath);
+            if (stat.isFile()) {
+              const ext = extname(filePath);
+              if (ext === ".tsx" || ext === ".jsx" || ext === ".ts") {
+                if (eventType === "change" || eventType === "rename") {
+                  await processChangedFile(filePath);
+                }
+              }
+            } else if (stat.isDirectory() && eventType === "rename") {
+              // New directory added, start watching it
+              watchDirectory(filePath);
+            }
+          } catch (error) {
+            // File might have been deleted, ignore
+          }
+        }
+      );
+
+      // Handle watcher errors
+      watcher.on("error", (error) => {
+        console.error("Watcher error:", error);
+      });
+    } catch (error) {
+      console.error(`Failed to watch directory ${dirPath}:`, error);
+    }
+  }
+
+  // Start watching
+  watchDirectory(finalTargetDir);
+
+  // Keep process alive
+  process.on("SIGINT", () => {
+    console.log("\n\n👋 Stopping file watcher...");
+    process.exit(0);
+  });
+}
+
 // If run directly
 if (import.meta.main) {
   const args = process.argv.slice(2);
-  
-  // Parse command-style arguments: living-image-macro [command] [directory] [flags]
+
+  // Parse command-style arguments: imagined [command] [directory] [flags]
   // Examples:
-  //   living-image-macro                    -> generate .
-  //   living-image-macro generate            -> generate .
-  //   living-image-macro generate ./src      -> generate ./src
-  //   living-image-macro ./src               -> generate ./src (backward compat)
-  //   living-image-macro --generate          -> generate . (backward compat)
-  
+  //   imagined                    -> generate .
+  //   imagined generate            -> generate .
+  //   imagined generate ./src      -> generate ./src
+  //   imagined ./src               -> generate ./src (backward compat)
+  //   imagined --generate          -> generate . (backward compat)
+
   let command: string | undefined;
   let targetDir: string | undefined;
   let generateFlag = false;
   let outputDir: string | undefined;
-  
+
   // Extract flags first (they can appear anywhere)
   const remainingArgs: string[] = [];
   for (const arg of args) {
@@ -505,7 +802,7 @@ if (import.meta.main) {
       remainingArgs.push(arg);
     }
   }
-  
+
   // Parse remaining arguments (command and directory)
   if (remainingArgs.length === 0) {
     // No arguments: default to generate command, no directory (will use config or default)
@@ -515,7 +812,12 @@ if (import.meta.main) {
     // One argument: could be command or directory
     const arg = remainingArgs[0];
     // Check if it looks like a directory path (starts with . or /, or contains /)
-    if (arg.startsWith(".") || arg.startsWith("/") || arg.includes("/") || arg.includes("\\")) {
+    if (
+      arg.startsWith(".") ||
+      arg.startsWith("/") ||
+      arg.includes("/") ||
+      arg.includes("\\")
+    ) {
       // Looks like a directory path
       targetDir = arg;
       command = "generate"; // Default command
@@ -529,13 +831,23 @@ if (import.meta.main) {
     command = remainingArgs[0];
     targetDir = remainingArgs[1];
   }
-  
-  // Determine if generation should happen
-  // If command is "generate" or generateFlag is set, enable generation
-  const shouldGenerate = command === "generate" || generateFlag;
-  
-  // Pass targetDir only if explicitly provided (will use config.sourceDir or default if undefined)
-  runMacro(targetDir, { generate: shouldGenerate, outputDir }).catch(
-    console.error
-  );
+
+  // Handle different commands
+  if (command === "cleanup" || command === "clean") {
+    // Extract --dry-run flag if present
+    const dryRun = args.includes("--dry-run") || args.includes("-d");
+    cleanupUnusedImages(targetDir, { outputDir, dryRun }).catch(console.error);
+  } else if (command === "watch") {
+    // Watch mode - continuously watch for changes
+    watchFiles(targetDir, { outputDir }).catch(console.error);
+  } else {
+    // Determine if generation should happen
+    // If command is "generate" or generateFlag is set, enable generation
+    const shouldGenerate = command === "generate" || generateFlag;
+
+    // Pass targetDir only if explicitly provided (will use config.sourceDir or default if undefined)
+    runMacro(targetDir, { generate: shouldGenerate, outputDir }).catch(
+      console.error
+    );
+  }
 }

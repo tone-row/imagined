@@ -1,13 +1,13 @@
-import type { LivingImageConfig } from "living-image";
+import type { ImaginedConfig } from "imagined";
 
-const config: LivingImageConfig = {
+const config: ImaginedConfig = {
   sourceDir: "./src",
   outputDir: "./public/generated-images",
   publicPath: "/generated-images",
   imageFormat: "jpg",
   model: "recraftv3",
   defaultStyle: {
-    style_id: "a9dcef6d-f052-4672-8f2b-a0a3bd8640b0",
+    style_id: "4866d684-8ed1-4692-af4c-73466a5c8958",
   },
 };
 

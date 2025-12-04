@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { getImageSrc, getCheckeredFallback } from "./utils";
 import type { RecraftStyleOptions } from "./config";
 
-export interface LivingImageProps
+export interface ImaginedProps
   extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> {
   prompt: string;
   width?: number;
@@ -11,7 +11,7 @@ export interface LivingImageProps
   recraftStyle?: RecraftStyleOptions;
 }
 
-export function LivingImage({
+export function Imagined({
   prompt,
   width,
   height,
@@ -19,7 +19,7 @@ export function LivingImage({
   recraftStyle,
   alt,
   ...imgProps
-}: LivingImageProps) {
+}: ImaginedProps) {
   // Generate the expected image path using the same logic as the macro
   const imageSrc = getImageSrc(prompt, width, height, seed, recraftStyle);
   const [src, setSrc] = useState(imageSrc);
@@ -44,4 +44,4 @@ export function LivingImage({
   );
 }
 
-export default LivingImage;
+export default Imagined;

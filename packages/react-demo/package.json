@@ -8,12 +8,12 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "images:generate": "living-image generate"
+    "images:generate": "imagined generate"
   },
   "dependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "living-image": "workspace:*"
+    "imagined": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

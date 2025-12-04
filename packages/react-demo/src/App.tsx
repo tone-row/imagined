@@ -1,4 +1,4 @@
-import { LivingImage } from "living-image";
+import { Imagined } from "imagined";
 import "./App.css";
 
 function App() {
@@ -6,8 +6,8 @@ function App() {
     <>
       <div style={{ width: "400px", margin: "0 auto" }}>
         <h2>AI Generated Image</h2>
-        <LivingImage
-          prompt="a turtle"
+        <Imagined
+          prompt="a graphic designer at her computer"
           width={1024}
           height={1024}
           className="demo-image"

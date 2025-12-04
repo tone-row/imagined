@@ -1,23 +1,23 @@
-import type { LivingImageConfig } from "living-image";
+import type { ImaginedConfig } from "imagined";
 
 /**
- * Example configuration file for living-image
+ * Example configuration file for imagined
  * 
- * Copy this file to `living-image.config.ts` in your project root
+ * Copy this file to `imagined.config.ts` in your project root
  * and customize the settings as needed.
  * 
  * Configuration priority (highest to lowest):
- * 1. Environment variables (RECRAFT_API_KEY, LIVING_IMAGE_OUTPUT_DIR)
+ * 1. Environment variables (RECRAFT_API_KEY, IMAGINED_OUTPUT_DIR)
  * 2. CLI arguments (override config file)
  * 3. This config file
- * 4. package.json "livingImage" field
+ * 4. package.json "imagined" field
  * 5. Default values
  * 
  * IMPORTANT: For the component to use publicPath and imageFormat in the browser,
  * you need to configure them in your app initialization code. For example, in your main.tsx:
  * 
  * ```tsx
- * import { configureImageSettings } from "living-image";
+ * import { configureImageSettings } from "imagined";
  * 
  * // Configure with the same values from your config file
  * configureImageSettings({
@@ -29,24 +29,24 @@ import type { LivingImageConfig } from "living-image";
  * Alternatively, you can export these values from your config file and import them:
  * 
  * ```tsx
- * // In living-image.config.ts, also export:
+ * // In imagined.config.ts, also export:
  * export const publicPath = "/generated-images";
  * export const imageFormat = "jpg" as const;
  * 
  * // Then in main.tsx:
- * import { configureImageSettings } from "living-image";
- * import { publicPath, imageFormat } from "./living-image.config.ts";
+ * import { configureImageSettings } from "imagined";
+ * import { publicPath, imageFormat } from "./imagined.config.ts";
  * configureImageSettings({ publicPath, imageFormat });
  * ```
  */
-const config: LivingImageConfig = {
+const config: ImaginedConfig = {
   // API Configuration
   // apiKey: process.env.RECRAFT_API_KEY, // Usually set via .env file
 
   // Source Configuration
-  // Directory to scan for LivingImage components (defaults to current directory if not set)
-  // If not specified here, you can pass it via CLI: living-image generate ./src
-  sourceDir: "./src", // Optional: directory to scan for LivingImage components
+  // Directory to scan for Imagined components (defaults to current directory if not set)
+  // If not specified here, you can pass it via CLI: imagined generate ./src
+  sourceDir: "./src", // Optional: directory to scan for Imagined components
 
   // Output Configuration
   outputDir: "./public/generated-images", // Where generated images will be saved on disk

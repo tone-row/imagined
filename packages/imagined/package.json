@@ -1,11 +1,11 @@
 {
-  "name": "living-image",
-  "version": "0.0.1",
+  "name": "imagined",
+  "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "bin": {
-    "living-image": "./src/macro.ts"
+    "imagined": "./src/macro.ts"
   },
   "exports": {
     ".": {

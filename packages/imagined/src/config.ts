@@ -1,11 +1,11 @@
 import type { RecraftStyleOptions } from "./types/recraft-styles";
 
-export interface LivingImageConfig {
+export interface ImaginedConfig {
   // API Configuration
   apiKey?: string;
 
   // Source Configuration
-  // Directory to scan for LivingImage components (defaults to current directory)
+  // Directory to scan for Imagined components (defaults to current directory)
   sourceDir?: string;
 
   // Output Configuration
@@ -24,7 +24,7 @@ export interface LivingImageConfig {
   model?: "recraftv3";
 }
 
-export interface LivingImageConfigFile extends LivingImageConfig {
+export interface ImaginedConfigFile extends ImaginedConfig {
   // Config file can contain additional non-runtime settings
   version?: string;
 }
