@@ -1,6 +1,26 @@
 {
   "name": "imagined",
   "version": "0.1.0",
+  "description": "A build-time macro system for AI image generation that transforms React components into static images using the Recraft API",
+  "keywords": [
+    "ai",
+    "image-generation",
+    "recraft",
+    "react",
+    "macro",
+    "build-time",
+    "static-images"
+  ],
+  "license": "MIT",
+  "author": "tone-row",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tone-row/imagined.git"
+  },
+  "homepage": "https://github.com/tone-row/imagined#readme",
+  "bugs": {
+    "url": "https://github.com/tone-row/imagined/issues"
+  },
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -18,7 +38,8 @@
     }
   },
   "files": [
-    "src"
+    "src",
+    "tsconfig.json"
   ],
   "dependencies": {
     "@babel/parser": "^7.28.5",

@@ -3,6 +3,10 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tone-row/imagined.git"
+  },
   "workspaces": [
     "packages/*"
   ],
