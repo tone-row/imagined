@@ -115,3 +115,6 @@ export type RecraftStyleOptions =
   | {
       style_id: string;
     };
+
+// Alias for backward compatibility
+export type RecraftStyleConfig = RecraftStyleOptions;

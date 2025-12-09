@@ -1,5 +1,3 @@
-#!/usr/bin/env -S bun run
-
 import {
   readFileSync,
   writeFileSync,
@@ -15,6 +13,7 @@ import { RecraftGenerator } from "./generators/recraft";
 import { loadConfig } from "./config-server";
 import parser from "@babel/parser";
 import traverse from "@babel/traverse";
+const traverseDefault = (traverse as any).default || traverse;
 import * as t from "@babel/types";
 
 interface ImaginedMatch {
@@ -83,7 +82,7 @@ function extractObjectExpression(
         value = `{${extractObjectExpression(prop.value, source)}}`;
       } else {
         // For other types, extract from source code
-        if (prop.value.start !== null && prop.value.end !== null) {
+        if (prop.value.start != null && prop.value.end != null) {
           value = source.substring(prop.value.start, prop.value.end);
         } else {
           continue; // Skip if we can't extract
@@ -108,8 +107,8 @@ function findImaginedComponents(content: string): ImaginedMatch[] {
     });
 
     // Traverse the AST to find Imagined JSX elements
-    traverse(ast, {
-      JSXOpeningElement(path) {
+    traverseDefault(ast, {
+      JSXOpeningElement(path: any) {
         const node = path.node;
 
         // Check if this is an Imagined component

@@ -1,6 +1,6 @@
 {
   "name": "imagined",
-  "version": "0.2.0",
+  "version": "0.3.0-canary.1",
   "description": "A build-time macro system for AI image generation that transforms React components into static images using the Recraft API",
   "keywords": [
     "ai",
@@ -22,10 +22,8 @@
     "url": "https://github.com/tone-row/imagined/issues"
   },
   "type": "module",
-  "source": "src/index.ts",
-  "main": "dist/imagined.cjs",
-  "module": "dist/imagined.module.js",
-  "unpkg": "dist/imagined.umd.js",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "imagined": "./dist/macro.js"
@@ -33,19 +31,15 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/imagined.module.js",
-      "require": "./dist/imagined.cjs"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
-    "./macro": {
-      "types": "./dist/macro.d.ts",
-      "import": "./dist/macro.js"
-    }
+    "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "microbundle --target node",
-    "build:macro": "bun build src/macro.ts --outdir dist --target node --format esm --external react",
-    "build:all": "bun run build && bun run build:macro",
-    "prepublishOnly": "bun run build:all"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "bun run build"
   },
   "files": [
     "src",
@@ -59,10 +53,11 @@
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
+    "@types/babel__traverse": "^7.28.0",
     "@types/bun": "latest",
     "@types/react": "^19.0.0",
-    "microbundle": "^0.15.1",
     "react": "^19.0.0",
+    "tsup": "^8.5.1",
     "typescript": "^5"
   },
   "peerDependencies": {
