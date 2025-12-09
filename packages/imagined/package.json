@@ -1,6 +1,6 @@
 {
   "name": "imagined",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A build-time macro system for AI image generation that transforms React components into static images using the Recraft API",
   "keywords": [
     "ai",
@@ -22,23 +22,34 @@
     "url": "https://github.com/tone-row/imagined/issues"
   },
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "source": "src/index.ts",
+  "main": "dist/imagined.cjs",
+  "module": "dist/imagined.module.js",
+  "unpkg": "dist/imagined.umd.js",
+  "types": "dist/index.d.ts",
   "bin": {
-    "imagined": "./src/macro.ts"
+    "imagined": "./dist/macro.js"
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/imagined.module.js",
+      "require": "./dist/imagined.cjs"
     },
     "./macro": {
-      "types": "./src/macro.ts",
-      "import": "./src/macro.ts"
+      "types": "./dist/macro.d.ts",
+      "import": "./dist/macro.js"
     }
+  },
+  "scripts": {
+    "build": "microbundle --target node",
+    "build:macro": "bun build src/macro.ts --outdir dist --target node --format esm --external react",
+    "build:all": "bun run build && bun run build:macro",
+    "prepublishOnly": "bun run build:all"
   },
   "files": [
     "src",
+    "dist",
     "tsconfig.json"
   ],
   "dependencies": {
@@ -50,6 +61,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/react": "^19.0.0",
+    "microbundle": "^0.15.1",
     "react": "^19.0.0",
     "typescript": "^5"
   },

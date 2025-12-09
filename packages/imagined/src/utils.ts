@@ -6,6 +6,35 @@ let globalImagePath = "/generated-images";
 // This can be set via configureImageFormat() or defaults to "jpg"
 let globalImageFormat: "jpg" | "png" | "webp" = "jpg";
 
+// Check if we're in a Node.js environment (server-side)
+const isServer = typeof process !== "undefined" && process.versions?.node;
+
+// Lazy import fs/path only when needed (server-side)
+let fs: typeof import("fs") | null = null;
+let path: typeof import("path") | null = null;
+
+function getFs() {
+  if (!fs && isServer) {
+    try {
+      fs = require("fs");
+    } catch {
+      // fs not available
+    }
+  }
+  return fs;
+}
+
+function getPath() {
+  if (!path && isServer) {
+    try {
+      path = require("path");
+    } catch {
+      // path not available
+    }
+  }
+  return path;
+}
+
 /**
  * Configure the public path used for image URLs.
  * This should match the publicPath from your imagined.config.ts file.
@@ -163,7 +192,40 @@ export function getImageSrc(
 
   // Use the configured public path and format (can be set via configureImagePath/configureImageFormat())
   // Defaults to "/generated-images" and "jpg" if not configured
-  return `${globalImagePath}/${imageKey}.${globalImageFormat}`;
+  const imageSrc = `${globalImagePath}/${imageKey}.${globalImageFormat}`;
+
+  // On the server, check if the file exists and return fallback if not
+  if (isServer) {
+    const fsModule = getFs();
+    const pathModule = getPath();
+    
+    if (fsModule && pathModule && typeof process !== "undefined") {
+      try {
+        // Convert public path to filesystem path
+        // For Next.js: "/generated-images" -> "public/generated-images"
+        // Remove leading slash and prepend "public"
+        const publicPath = globalImagePath.startsWith("/")
+          ? globalImagePath.slice(1)
+          : globalImagePath;
+        const filePath = pathModule.join(
+          process.cwd(),
+          "public",
+          publicPath,
+          `${imageKey}.${globalImageFormat}`
+        );
+
+        // Check if file exists
+        if (!fsModule.existsSync(filePath)) {
+          return getCheckeredFallback();
+        }
+      } catch {
+        // If file check fails (e.g., permissions, wrong path), return the computed path
+        // This allows graceful degradation
+      }
+    }
+  }
+
+  return imageSrc;
 }
 
 /**
@@ -174,5 +236,17 @@ export function getCheckeredFallback(): string {
   // SVG data URI for a 4x4 pixel checkered pattern
   // Each square is 1x1 pixel, alternating white and light gray
   const svg = `<svg width="4" height="4" xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1" fill="#fff"/><rect x="1" width="1" height="1" fill="#ddd"/><rect x="2" width="1" height="1" fill="#fff"/><rect x="3" width="1" height="1" fill="#ddd"/><rect y="1" width="1" height="1" fill="#ddd"/><rect x="1" y="1" width="1" height="1" fill="#fff"/><rect x="2" y="1" width="1" height="1" fill="#ddd"/><rect x="3" y="1" width="1" height="1" fill="#fff"/><rect y="2" width="1" height="1" fill="#fff"/><rect x="1" y="2" width="1" height="1" fill="#ddd"/><rect x="2" y="2" width="1" height="1" fill="#fff"/><rect x="3" y="2" width="1" height="1" fill="#ddd"/><rect y="3" width="1" height="1" fill="#ddd"/><rect x="1" y="3" width="1" height="1" fill="#fff"/><rect x="2" y="3" width="1" height="1" fill="#ddd"/><rect x="3" y="3" width="1" height="1" fill="#fff"/></svg>`;
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  
+  // Use btoa in browser/modern Node.js, or Buffer in older Node.js
+  let base64: string;
+  if (typeof btoa !== "undefined") {
+    base64 = btoa(svg);
+  } else if (typeof Buffer !== "undefined") {
+    base64 = Buffer.from(svg).toString("base64");
+  } else {
+    // Fallback: encode manually (shouldn't happen in practice)
+    base64 = "";
+  }
+  
+  return `data:image/svg+xml;base64,${base64}`;
 }

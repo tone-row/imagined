@@ -1,6 +1,6 @@
 // Main component and types
-export { Imagined, type ImaginedProps } from "./Imagined.tsx";
-export { default } from "./Imagined.tsx";
+export { Imagined, type ImaginedProps } from "./Imagined";
+export { default } from "./Imagined";
 
 // Utility functions
 export { 

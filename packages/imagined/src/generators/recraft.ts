@@ -25,10 +25,18 @@ export class RecraftGenerator extends ImageGenerator {
         mkdirSync(outputDir, { recursive: true });
       }
 
-      // Build request body for Recraft V3 API
+      // Determine the model to use based on style
+      let model = 'recraftv3'; // Default to v3
+
+      // Check if logo_raster is actually supported - for now let's try without model override
+      // if (params.recraftStyle && 'style' in params.recraftStyle && params.recraftStyle.style === 'logo_raster') {
+      //   model = 'recraftv2';
+      // }
+
+      // Build request body for Recraft API
       const requestBody: any = {
         prompt: params.prompt,
-        model: 'recraftv3', // Always use recraftv3 model
+        model: model,
         n: 1, // Generate 1 image
         response_format: 'url', // Get URL to download from
       };
@@ -52,7 +60,7 @@ export class RecraftGenerator extends ImageGenerator {
         }
       }
 
-      console.log(`🎨 Generating image with Recraft V3 API...`);
+      console.log(`🎨 Generating image with Recraft API...`);
       console.log(`   Prompt: "${params.prompt}"`);
       console.log(`   Size: ${requestBody.size}`);
       console.log(`   Model: ${requestBody.model}`);

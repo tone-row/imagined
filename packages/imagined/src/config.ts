@@ -21,7 +21,7 @@ export interface ImaginedConfig {
   defaultStyle?: RecraftStyleOptions;
 
   // Model Configuration
-  model?: "recraftv3";
+  model?: "recraftv2" | "recraftv3";
 }
 
 export interface ImaginedConfigFile extends ImaginedConfig {
@@ -40,7 +40,6 @@ export function validateStyleConfig(style: RecraftStyleOptions): boolean {
       "realistic_image",
       "digital_illustration",
       "vector_illustration",
-      "logo_raster",
     ];
     return validStyles.includes(style.style);
   }
@@ -57,5 +56,4 @@ export type {
   RealisticImageSubstyle,
   DigitalIllustrationSubstyle,
   VectorIllustrationSubstyle,
-  LogoRasterSubstyle,
 } from "./types/recraft-styles";

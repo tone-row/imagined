@@ -4,8 +4,7 @@
 export type RecraftV3Style =
   | "realistic_image"
   | "digital_illustration"
-  | "vector_illustration"
-  | "logo_raster";
+  | "vector_illustration";
 
 export type RealisticImageSubstyle =
   | "b_and_w"
@@ -93,24 +92,15 @@ export type VectorIllustrationSubstyle =
   | "vector_photo"
   | "vivid_shapes";
 
-export type LogoRasterSubstyle =
-  | "emblem_graffiti"
-  | "emblem_pop_art"
-  | "emblem_punk"
-  | "emblem_stamp"
-  | "emblem_vintage";
-
 export type RecraftV3Substyle =
   | RealisticImageSubstyle
   | DigitalIllustrationSubstyle
-  | VectorIllustrationSubstyle
-  | LogoRasterSubstyle;
+  | VectorIllustrationSubstyle;
 
 type StrictStyle = {
   realistic_image: RealisticImageSubstyle;
   digital_illustration: DigitalIllustrationSubstyle;
   vector_illustration: VectorIllustrationSubstyle;
-  logo_raster: LogoRasterSubstyle;
 };
 
 type StrictStyleConfig<T extends RecraftV3Style> = {

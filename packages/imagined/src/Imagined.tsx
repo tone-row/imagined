@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { getImageSrc, getCheckeredFallback } from "./utils";
+import React from "react";
+import { getImageSrc } from "./utils";
 import type { RecraftStyleOptions } from "./config";
 
 export interface ImaginedProps
@@ -21,24 +21,15 @@ export function Imagined({
   ...imgProps
 }: ImaginedProps) {
   // Generate the expected image path using the same logic as the macro
+  // This is computed synchronously and can run on the server/build time
   const imageSrc = getImageSrc(prompt, width, height, seed, recraftStyle);
-  const [src, setSrc] = useState(imageSrc);
-  const fallback = getCheckeredFallback();
-
-  const handleError = () => {
-    // If image fails to load, use checkered fallback
-    if (src !== fallback) {
-      setSrc(fallback);
-    }
-  };
 
   return (
     <img
-      src={src}
+      src={imageSrc}
       width={width}
       height={height}
       alt={alt || prompt}
-      onError={handleError}
       {...imgProps}
     />
   );
