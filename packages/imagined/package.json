@@ -1,6 +1,6 @@
 {
   "name": "imagined",
-  "version": "0.3.0-canary.1",
+  "version": "0.3.0",
   "description": "A build-time macro system for AI image generation that transforms React components into static images using the Recraft API",
   "keywords": [
     "ai",

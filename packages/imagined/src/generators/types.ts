@@ -34,8 +34,16 @@ export abstract class ImageGenerator {
       const arrayBuffer = await response.arrayBuffer();
       const buffer = new Uint8Array(arrayBuffer);
 
-      // Use Bun's file API to write the image
-      await Bun.write(outputPath, buffer);
+      // Check if we're in Bun or Node.js environment
+      if (typeof Bun !== 'undefined') {
+        // Use Bun's file API
+        await Bun.write(outputPath, buffer);
+      } else {
+        // Use Node.js fs module
+        const { writeFileSync } = await import('fs');
+        writeFileSync(outputPath, buffer);
+      }
+
       return true;
     } catch (error) {
       console.error('Failed to download image:', error);
